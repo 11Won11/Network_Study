@@ -14,7 +14,7 @@ void error_handling(char *message);
 typedef struct{
     unsigned int data_type; // 0: NORM 1: END 
 	unsigned int file_size;
-	unsigned char file[BUF];
+	unsigned char file[BUF_SIZE];
 }pkt_t;
 
 int search_directory(const char* dir_path, int max, int clnt_sock);
@@ -85,20 +85,19 @@ int main(int argc, char *argv[])
 				error_handling("open() error!!");
 			}
 
-			while(1)
-				{
-					read_cnt = fread((void*)send_pkt->file, sizeof(char), BUF, fp);
-					send_pkt->file_size = read_cnt;
-					send_pkt->data_type = 0;
-					printf("%s", send_pkt->file);
-					if (read_cnt < BUF)
-					{   
-						send_pkt->data_type = 1;
-						write(clnt_sock, send_pkt, sizeof(pkt_t));
-						break;
-					}
+			while(1){
+				read_cnt = fread((void*)send_pkt->file, sizeof(char), BUF_SIZE, fp);
+				send_pkt->file_size = read_cnt;
+				send_pkt->data_type = 0;
+				if (read_cnt < BUF_SIZE)
+				{   
+					send_pkt->data_type = 1;
 					write(clnt_sock, send_pkt, sizeof(pkt_t));
+					send_pkt->data_type = 0;
+					break;
 				}
+				write(clnt_sock, send_pkt, sizeof(pkt_t));
+			}
 			fclose(fp);
 		
 			printf("file send\n");

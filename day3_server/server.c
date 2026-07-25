@@ -75,6 +75,8 @@ int main(int argc, char *argv[])
         }
 
 		for (i = 0; i < event_cnt; i++){
+            memset(send_pkt, 0, sizeof(pkt_t));
+            memset(recv_pkt, 0, sizeof(pkt_t));
             if (ep_events[i].data.fd == serv_sock)     
             {
                 adr_sz = sizeof(clnt_adr);
