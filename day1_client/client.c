@@ -12,7 +12,7 @@ void error_handling(char *message);
 typedef struct{
     unsigned int data_type; // 0: NORM 1: END 
 	unsigned int file_size;
-	unsigned char file[BUF_SIZE_1];
+	unsigned char file[BUF_SIZE];
 }pkt_t;
 
 int main(int argc, char *argv[])
@@ -20,12 +20,10 @@ int main(int argc, char *argv[])
 	FILE *fp;
 	int sock;
 	char message[BUF_SIZE];
-	char buf[BUF_SIZE];
 	int str_len, recv_len, recv_cnt, read_cnt;
-	char file_size[BUF_SIZE_1];
 	struct sockaddr_in serv_adr;
 	char *file_data;
-	pkt_t *recv_pkt = (pkt_t*)malloc(sizeof(pkt_t));
+	pkt_t *recv_pkt; 
 
 	if (argc != 3) {
 		printf("Usage : %s <IP> <port>\n", argv[0]);
@@ -48,6 +46,7 @@ int main(int argc, char *argv[])
 	
 	while (1) 
 	{
+		recv_pkt = (pkt_t*)malloc(sizeof(pkt_t));
 		fputs("Menu(1. Print Dir, 2. Select & Copy file, 3. Quit): ", stdout);
 		fgets(message, BUF_SIZE, stdin);
 		
@@ -82,13 +81,21 @@ int main(int argc, char *argv[])
 			getchar();
 
 			str_len = write(sock, message, BUF_SIZE_1);
-			printf("message length: %ld\n", strlen(message));
-			read_cnt = read(sock, file_size, BUF_SIZE_1);
 			fp = fopen(message, "wb");
 
 			while(1){
-                read_cnt = read(sock, recv_pkt, sizeof(pkt_t));
-				printf("%s", recv_pkt->file);
+				recv_len = 0;
+            
+                while (recv_len < sizeof(pkt_t)) {
+                    read_cnt = read(sock, (char*)recv_pkt + recv_len, sizeof(pkt_t) - recv_len);
+                    if (read_cnt == -1){
+                        error_handling("read() error");
+                    }
+                    else if (read_cnt == 0){
+                        break; 
+                    } 	
+                    recv_len += read_cnt;
+                }
                 if(recv_pkt->data_type == 1){
                     fwrite((void*)recv_pkt->file, sizeof(char), recv_pkt->file_size, fp);
                     break;
@@ -97,12 +104,14 @@ int main(int argc, char *argv[])
             }
             puts("Received file data");
             fclose(fp);
-			
+			break;
 		}
 		else{
 			printf("존재하지 않는 명령어입니다.\n");
 			continue;
 		}
+		memset(message, 0, sizeof(message));
+		free(recv_pkt);
 	}
 	close(sock);
 	

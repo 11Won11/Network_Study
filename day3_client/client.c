@@ -44,6 +44,8 @@ int main(int argc, char *argv[])
     recv_pkt = (pkt_t*)malloc(sizeof(pkt_t));
 
     while(1){
+        memset(send_pkt, 0, sizeof(pkt_t));
+        memset(recv_pkt, 0, sizeof(pkt_t));
         printf("Menu(1. Print File, 2. Move Dir, 3. Select & Copy file, 4. Upload file, 5. Quit): ");
         if(scanf("%d", &menu) != 1){
             printf("잘못된 입력입니다. 정수를 입력해주세요.\n");
