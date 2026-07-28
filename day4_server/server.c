@@ -82,6 +82,10 @@ void *handle_clnt(void * arg){
     word_data arr[10]; 
 
     while(1){
+		memset(recv_pkt, 0, sizeof(pkt_t));
+		memset(send_pkt, 0, sizeof(pkt_t));
+		memset(arr, 0, sizeof(arr));
+
         recv_len = 0;
     
 		while (recv_len < sizeof(pkt_t)) {
@@ -104,8 +108,13 @@ void *handle_clnt(void * arg){
         for(int i = 0; i < index; i++){
             printf("word: %s\n", arr[i].word);
             printf("count: %d\n", arr[i].word_count);
+			send_pkt->data_size = strlen(arr[i].word);
+			send_pkt->data_type = 0;
+			sprintf(send_pkt->data, "%s", arr[i].word);
+			write(clnt_sock, send_pkt, sizeof(pkt_t));
         }
-
+		send_pkt->data_type = 1;
+		write(clnt_sock, send_pkt, sizeof(pkt_t));
     }
 
 	pthread_mutex_lock(&mutx);
@@ -131,7 +140,7 @@ int find_word(word_data (*arr), char *data){
     char tmp[BUF_SIZE];
     char count[BUF_SIZE];
     int index = 0;
-    int check, flag, comp;
+    int check, flag, comp = 0;
 
     fp = fopen("data.txt", "r");
     if(fp == NULL){
@@ -144,36 +153,38 @@ int find_word(word_data (*arr), char *data){
         fgets(buf, BUF_SIZE, fp);
         check = 0;
         flag = 0;
-        comp = 0;
-        if(strncmp(buf, data, strlen(data)) == 0 && (strlen(data) != 0)){
-            //printf("%s\n", buf);
-            for(int i = 0; i < strlen(buf); i++){
-                //printf("check1: %s\n", tmp);
-                if(buf[i] == 32 && buf[i + 1] == 32){
-                    i++;
-                    flag = 1;
-                }
-                if(flag == 0){
-                    tmp[i] = buf[i];
-                }
-                else{
-                    count[check] = buf[i];
-                    check++;
-                }
-            }
-            if(arr[index].word_count >= atoi(count) && (comp == 1)){
-                continue;
-            }
-			sprintf(arr[index].word, "%s", tmp);
-            arr[index].word_count = atoi(count);
-            if(index < 9){
-                index++;
-            } 
-            else{
-                comp = 1;
-            }
-        }
-        qsort((word_data*)arr, 10, sizeof(arr), compare);
+		for(int i = 0; i < strlen(buf); i++){
+			if(strncmp(buf + i, data, strlen(data)) == 0 && (strlen(data) != 0)){
+            	printf("%s\n", buf);
+				for(int i = 0; i < strlen(buf); i++){
+					//printf("check1: %s\n", tmp);
+					if(buf[i] == 32 && buf[i + 1] == 32){
+						i++;
+						flag = 1;
+					}
+					if(flag == 0){
+						tmp[i] = buf[i];
+					}
+					else{
+						count[check] = buf[i];
+						check++;
+					}
+				}
+				if(arr[index].word_count >= atoi(count) && (comp == 1)){
+					continue;
+				}
+				sprintf(arr[index].word, "%s", tmp);
+				arr[index].word_count = atoi(count);
+				
+				if(index <= 9){
+					index++;
+				} 
+				else{
+					comp = 1;
+				}
+        	}
+        qsort((word_data*)arr, index, sizeof(word_data), compare);
+		}
     }
     fclose(fp);
     return index;
@@ -181,7 +192,7 @@ int find_word(word_data (*arr), char *data){
 }
 
 int compare(const void *a, const void *b){
-    return ((word_data *)a)->word_count > ((word_data *)b)->word_count;
+    return ((word_data *)b)->word_count - ((word_data *)a)->word_count;
 }
 
 void error_handling(char *message)

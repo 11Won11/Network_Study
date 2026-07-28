@@ -3,3 +3,28 @@ Pohang Weather  40000
 Pohang Cafe  80000
 Pohang Restaurant  50000
 Pohang Hotel  10000
+Pen  20000
+Pan  100000
+Pohang Home  5000
+Pohang Beach  20000
+Pohang Bookstore  60000
+Pohang University  80000
+Pineapple  8000
+Apple  20000
+Lemon  5000
+Sweet  40000
+Peach  1000000
+TCPIP  50000
+TV  2000
+Queen  8000
+King  7000
+Computer  80000
+Ade  1000
+Bubble  6000
+Pencil  2000
+Book  400
+Water  60
+Chair  600
+Stick  8000
+HATTI  10000
+HAT WATTA SCREAM  20000
