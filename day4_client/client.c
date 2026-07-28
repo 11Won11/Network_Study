@@ -11,6 +11,7 @@
 
 #define BUF_SIZE 1024
 #define COLOR_GREEN	"\033[38;2;204;255;204m"
+#define COLOR_ORANGE	"\033[38;2;255;153;051m"
 #define COLOR_RESET	"\033[0m"
 void error_handling(char *message);
 
@@ -28,7 +29,7 @@ int main(int argc, char *argv[])
     struct termios term;
     char word[BUF_SIZE];
     char c;
-    int index = 0;
+    int index = 0, count;
 
     tcgetattr(STDIN_FILENO, &term);
 	term.c_lflag &= ~ICANON;    
@@ -52,9 +53,12 @@ int main(int argc, char *argv[])
 	serv_adr.sin_port = htons(atoi(argv[2]));
 
 	connect(sd, (struct sockaddr*)&serv_adr, sizeof(serv_adr));
+    memset(word, 0, sizeof(word));
 
-    while (read(0, &c, sizeof(c)) > 0)
-	{
+    while (read(0, &c, sizeof(c)) > 0){
+        memset(recv_pkt, 0, sizeof(pkt_t));
+		memset(send_pkt, 0, sizeof(pkt_t));
+
         if(c == 127){
             printf("\r%sSearch Word: %s%s", COLOR_GREEN, word, COLOR_RESET);
             index--;
@@ -81,25 +85,48 @@ int main(int argc, char *argv[])
         write(sd, send_pkt, sizeof(pkt_t));
 
         printf("\x1b[%dB", 1);
-        printf("\r----------------------------\r");
-        printf ("\x1b[%dA", 1);
+        printf("\r---------------------------------");
+        printf("\n");
 
-        // while(1){
-        //     while (recv_len < sizeof(pkt_t)) {
-        //         read_cnt = read(sd, (char*)recv_pkt + recv_len, sizeof(pkt_t) - recv_len);
-        //         if (read_cnt == -1){
-        //             error_handling("read() error");
-        //         }
-        //         else if (read_cnt == 0){
-        //             break; 
-        //         } 	
-        //         recv_len += read_cnt;
-		//     }
+        for(int i = 0; i < count; i++){
+        printf("\r\x1b[2K"); 
+        printf("\n");
+        }
+        printf ("\x1b[%dA", count + 1);
 
-        //     if (recv_pkt->data_type == 1){
-		// 	    break; 
-    	//     }
-        // }
+        count = 0;
+
+        while(1){
+            recv_len = 0;
+            while (recv_len < sizeof(pkt_t)) {
+                read_cnt = read(sd, (char*)recv_pkt + recv_len, sizeof(pkt_t) - recv_len);
+                if (read_cnt == -1){
+                    error_handling("read() error");
+                }
+                else if (read_cnt == 0){
+                    break; 
+                } 	
+                recv_len += read_cnt;
+		    }
+
+            if (recv_pkt->data_type == 1){
+			    break; 
+    	    }
+            printf("\n");
+            printf("\r%d. ", count + 1);
+            for(int i = 0; i < strlen(recv_pkt->data); i++){
+                if(strncmp(recv_pkt->data + i, word, strlen(word)) == 0){
+                    printf("%s%s%s", COLOR_ORANGE, word, COLOR_RESET);
+                    i += strlen(word) - 1;
+                    continue;
+                }
+                printf("%c", recv_pkt->data[i]);
+            }   
+            count++;
+            usleep(100000);
+        }
+        printf ("\x1b[%dA", count+1);
+
 
         fflush(stdout);
         sleep(0.1);
