@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <termios.h>
+#include <fcntl.h>
 
 #define BUF_SIZE 1024
 #define COLOR_GREEN	"\033[38;2;204;255;204m"
@@ -19,7 +20,7 @@ void error_handling(char *message);
 
 typedef struct{
     int x, y; // 좌표 값
-    int clock; // 현재 경과된 시간 
+    double clock; // 현재 경과된 시간 
     int player_id; // 각 플레이어의 번호 없을 시 0
 }s_pkt;   
 
@@ -50,6 +51,12 @@ int main(int argc, char *argv[])
     char word[BUF_SIZE];
     char c;
     int index = 0, count;
+    int x, y;
+    clock_t start, end;
+    double result;
+    double stoptime;
+
+    fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
 
     tcgetattr(STDIN_FILENO, &term);
 	term.c_lflag &= ~ICANON;    
@@ -115,6 +122,8 @@ int main(int argc, char *argv[])
             while (recv_len < sizeof(game_state)) {
                 read_cnt = read(sd, (char*)info + recv_len, sizeof(game_state) - recv_len);
                 if (read_cnt == -1){
+                    term.c_lflag != ~ECHO;  
+                    tcsetattr(STDIN_FILENO, TCSANOW, &term);
                     error_handling("read() error");
                 }
                 else if (read_cnt == 0){
@@ -122,85 +131,118 @@ int main(int argc, char *argv[])
                 } 	
                 recv_len += read_cnt;
             }
+
+            matrix[i][j].player = info->player;
+            matrix[i][j].pillow = info->pillow;
+
             if(matrix[i][j].player != 0){
                 players[matrix[i][j].player - 1].x = j;
                 players[matrix[i][j].player - 1].y = i;
             }
-            matrix[i][j].player = info->player;
-            matrix[i][j].pillow = info->pillow;
         }
     }
 
-    // 게임 시작 
+    printf("짝수는 Red, 홀수는 Blue팀입니다!\n");
+
+    //게임 시작 
     while(1){
         // 터미널에 게임 정보 출력 
         for(int i = 0; i < size; i++){
             for(int j = 0; j < size; j++){
                 if(matrix[i][j].pillow == 1){
-                    printf("|%s %d %s|", COLOR_RED, matrix[i][j].player, COLOR_RESET);
+                    if(matrix[i][j].player == 0){
+                        printf("|%s   %s|", COLOR_RED, COLOR_RESET);
+                    }
+                    else{
+                        printf("|%s %d %s|", COLOR_RED, matrix[i][j].player, COLOR_RESET);
+                    }
                 }
                 else if(matrix[i][j].pillow == 2){
-                    printf("|%s %d %s|", COLOR_BLUE, matrix[i][j].player, COLOR_RESET);
+                    if(matrix[i][j].player == 0){
+                        printf("|%s   %s|", COLOR_BLUE, COLOR_RESET);
+                    }
+                    else{
+                        printf("|%s %d %s|", COLOR_BLUE, matrix[i][j].player, COLOR_RESET);
+                    }
                 }
                 else{
-                    printf("| %d |", matrix[i][j].player);
+                    if(matrix[i][j].player == 0){
+                        printf("|   |");
+                    }
+                    else{
+                        printf("| %d |", matrix[i][j].player);
+                    }
                 }
             }
             printf("\n");
         }
 
-        while (read(0, &c, sizeof(c)) > 0){
-		    memset(send_pkt, 0, sizeof(c_pkt));
-            
-            //기본 값 입력 
-            send_pkt->x = players[player_id -1].x;
-            send_pkt->x = players[player_id -1].y;
-            send_pkt->pillow = 0;
+        players[player_id -1].pillow = 0;
+        x = players[player_id - 1].x;
+        y = players[player_id - 1].y;
 
+        start = clock();
+        c = '\0';
+        while (1){
+            read(0, &c, sizeof(c));
+		    memset(send_pkt, 0, sizeof(c_pkt));
+            end = clock();
+
+            result = (double)(end - start) / CLOCKS_PER_SEC;
+
+            if(result > 0.1){
+                break;
+            }
+            
             // w입력 
             if(c == 119){
-                if(send_pkt->y != 0){
-                    send_pkt->y = players[player_id -1].y - 1;
+                if(players[player_id -1].y > 0){
+                    matrix[y][x].player = 0;
+                    players[player_id -1].y -= 1;
                 }
                 break;
             }
             // a입력
             else if(c == 97){
-                if(send_pkt->x != 0){
-                    send_pkt->x = players[player_id -1].x - 1;
+                if(players[player_id -1].x > 0){
+                    matrix[y][x].player = 0;
+                    players[player_id -1].x -= 1;
                 }
                 break;
             }
             // s입력
             else if(c == 115){
-                if(send_pkt->y != size){
-                    send_pkt->y = players[player_id -1].y + 1;
+                if(players[player_id -1].y < size - 1){
+                    matrix[y][x].player = 0;
+                    players[player_id -1].y += 1;
                 }
                 break;
             }
             // d입력
             else if(c == 100){
-                if(send_pkt->x != size){
-                    send_pkt->x = players[player_id -1].x + 1;
+                if(players[player_id -1].x < size - 1){
+                    matrix[y][x].player = 0;
+                    players[player_id -1].x += 1;
                 }
                 break;
             }
             //enter입력
             else if(c == 10){
-                send_pkt->pillow = 1;
+                players[player_id -1].pillow = 1;
                 break;
             }
             // 그 외 키 입력 무시 
             else{
                 continue;
             }
-            puts("check1");
         }
         
+        send_pkt->x = players[player_id -1].x;
+        send_pkt->y = players[player_id -1].y;
+        send_pkt->pillow = players[player_id -1].pillow;
+
         //입력 된 키 전송 
         write(sd, send_pkt, sizeof(c_pkt));
-
-        int x, y;
 
         // 갱신된 정보 받기 
         for(int i = 0; i < player_num; i++){
@@ -230,14 +272,50 @@ int main(int argc, char *argv[])
             }
             else{
                 matrix[y][x].player = 0;
-                matrix[recv_pkt->y][recv_pkt->x].player = i+1;
+                matrix[recv_pkt->y][recv_pkt->x].player = i + 1;
                 players[i].x = recv_pkt->x;
                 players[i].y = recv_pkt->y;
             }
 
+            stoptime = recv_pkt->clock;
+
         }
 
-        printf ("\x1b[%dA", size);
+        if(stoptime <= 0){
+            break;
+        }
+        printf("현재 남은 시간: %.9f초\n", stoptime);
+        printf ("\x1b[%dA", size+1);
+
+    }
+
+    game_state *end_pkt = malloc(sizeof(game_state));
+
+    recv_len = 0;
+    while (recv_len < sizeof(game_state)) {
+        read_cnt = read(sd, (char*)end_pkt + recv_len, sizeof(game_state) - recv_len);
+        if (read_cnt == -1){
+            error_handling("read() error");
+        }
+        else if (read_cnt == 0){
+            break; 
+        } 	
+        recv_len += read_cnt;
+    }
+    
+    int red = end_pkt->player;
+    int blue = end_pkt->pillow;
+
+    printf("Red: %d, Blue %d로 ", red, blue);
+
+    if(red > blue){
+        puts("Red팀이 승리하였습니다~!");
+    }
+    else if(red < blue){
+        puts("Blue팀이 승리하였습니다~!");
+    }
+    else{
+        puts("무승부입니다!");
     }
 	
     term.c_lflag != ~ECHO;  
@@ -247,6 +325,7 @@ int main(int argc, char *argv[])
 	free(recv_pkt);
     free(send_pkt);
     free(start_pkt);
+    free(end_pkt);
     free(info);
 	return 0;
 }
