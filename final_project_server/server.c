@@ -22,7 +22,7 @@ void error_handling(char *message);
 
 typedef struct{
     int x, y;  // 좌표 값
-    int clock;  // 현재 경과된 시간 
+    double clock;  // 현재 경과된 시간 
     int player_id;  // 각 플레이어의 번호 없을 시 0
 }s_pkt;   
 
@@ -51,8 +51,13 @@ typedef struct{
     int player_id;  // 플레이어의 id
 }thread_arg;
 
+
 game_state **matrix;
 c_pkt *players;
+
+struct timespec start, end;
+
+int op_count = 0;
 
 void *handle_clnt(void *arg);
 
@@ -90,7 +95,7 @@ int main(int argc, char *argv[])
         }
 
     }
-    if (player_num % 2 != 0 || size < 0 || board < 0 || board*2 > (size*size) || timer < 0) {
+    if (size < 0 || board < 0 || board*2 > (size*size) || timer < 0) {
         printf("인자가 올바르지 않습니다.\n");
         return 1;
     }
@@ -184,6 +189,9 @@ int main(int argc, char *argv[])
 		pthread_create(&t_id, NULL, handle_clnt, (void*)arg);
 		pthread_detach(t_id);
 		printf("Connected client IP: %s \n", inet_ntoa(clnt_adr.sin_addr));
+        if(clnt_cnt == player_num){
+            clock_gettime(CLOCK_MONOTONIC, &start);
+        }
 	}
 
     close(serv_sock);
@@ -210,11 +218,22 @@ void *handle_clnt(void * arg){
     start_pkt->player_id = player_id;
     start_pkt->timer = timer;
 
+    while(1){
+        if(clnt_cnt == player_num){
+            break;
+        }
+    }
+
+
+
+    printf("all player come\n");
+
     write(clnt_sock, start_pkt, sizeof(st_pkt));
 
     // 초기 값 클라이언트에게 전송 
     for(int i = 0; i < size; i++){
         for(int j = 0; j < size; j++){
+            memset(info, 0, sizeof(game_state));
             info->player = matrix[i][j].player;
             info->pillow = matrix[i][j].pillow;
             write(clnt_sock, info, sizeof(game_state));
@@ -224,13 +243,13 @@ void *handle_clnt(void * arg){
     x = players[player_id - 1].x;
     y = players[player_id - 1].y;
 
-    // 게임 시작
+    //게임 시작
     while(1){
         memset(recv_pkt, 0, sizeof(c_pkt));
         recv_len = 0;
         // 키 입력 받기 
-        while (recv_len < sizeof(game_state)) {
-            read_cnt = read(clnt_sock, (char*)info + recv_len, sizeof(game_state) - recv_len);
+        while (recv_len < sizeof(c_pkt)) {
+            read_cnt = read(clnt_sock, (char*)recv_pkt + recv_len, sizeof(c_pkt) - recv_len);
             if (read_cnt == -1){
                 error_handling("read() error");
             }
@@ -239,8 +258,10 @@ void *handle_clnt(void * arg){
             } 	
             recv_len += read_cnt;
         }
+        players[player_id - 1].pillow = 0;
 
         //enter키 입력으로 판 뒤집기 
+        pthread_mutex_lock(&mutx);
         if(recv_pkt->pillow == 1){
             if(matrix[y][x].pillow == 1){
                 matrix[y][x].pillow = 2;
@@ -248,15 +269,33 @@ void *handle_clnt(void * arg){
             else if(matrix[y][x].pillow == 2){
                 matrix[y][x].pillow = 1;
             }
-            players[player_id].pillow = 1;
+            players[player_id - 1].pillow = 1;
         }
         // 그 외 wasd입럭 적용히기 
         else{
             matrix[y][x].player = 0;
             matrix[recv_pkt->y][recv_pkt->x].player = player_id;
+            players[player_id - 1].x = recv_pkt->x;
+            players[player_id - 1].y = recv_pkt->y;
         }
+        pthread_mutex_unlock(&mutx);
 
         memset(send_pkt, 0, sizeof(s_pkt));
+
+        pthread_mutex_lock(&mutx);
+        op_count++;
+        pthread_mutex_unlock(&mutx);
+
+        while(1){
+            if(op_count % player_num == 0){
+                break;
+            }
+        }
+
+        clock_gettime(CLOCK_MONOTONIC, &end);
+
+        double elapsed = (end.tv_sec - start.tv_sec) + 
+                     (end.tv_nsec - start.tv_nsec) * 1e-9;
 
         // 각 클라이언트 값을 합쳐서 전송 
         for(int i = 0; i < player_num; i++){
@@ -267,12 +306,39 @@ void *handle_clnt(void * arg){
                 send_pkt->x = players[i].x;
                 send_pkt->y = players[i].y;
             }
-            send_pkt->clock = 10;
+            send_pkt->clock = timer - elapsed;
             send_pkt->player_id = i + 1;
             write(clnt_sock, send_pkt, sizeof(s_pkt));
         }
 
+        if(timer - elapsed <= 0){
+            break;
+        }
     }
+
+    // 게임 결과 전송 
+    printf("게임종료n");
+
+    int red = 0;
+    int blue = 0;
+    
+    game_state *end_pkt = malloc(sizeof(game_state));
+
+    for(int i = 0; i < size; i++){
+        for(int j = 0; j < size; j++){
+            if(matrix[i][j].pillow == 1){
+                red++;
+            }
+            else if(matrix[i][j].pillow == 2){
+                blue++;
+            }
+        }
+    }
+
+    end_pkt->player = red;
+    end_pkt->pillow = blue;
+
+    write(clnt_sock, end_pkt, sizeof(game_state));
 
 
 	pthread_mutex_lock(&mutx);
@@ -289,6 +355,7 @@ void *handle_clnt(void * arg){
 	free(send_pkt);
     free(start_pkt);
     free(recv_pkt);
+    free(end_pkt);
     free(info);
 	printf("Disconnected client Num: %d \n", clnt_sock);
 	return NULL;
