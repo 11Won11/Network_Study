@@ -148,29 +148,30 @@ int main(int argc, char *argv[])
     while(1){
         // 터미널에 게임 정보 출력 
         for(int i = 0; i < size; i++){
+            printf("|");
             for(int j = 0; j < size; j++){
                 if(matrix[i][j].pillow == 1){
                     if(matrix[i][j].player == 0){
-                        printf("|%s   %s|", COLOR_RED, COLOR_RESET);
+                        printf("%s   %s|", COLOR_RED, COLOR_RESET);
                     }
                     else{
-                        printf("|%s %d %s|", COLOR_RED, matrix[i][j].player, COLOR_RESET);
+                        printf("%s %d %s|", COLOR_RED, matrix[i][j].player, COLOR_RESET);
                     }
                 }
                 else if(matrix[i][j].pillow == 2){
                     if(matrix[i][j].player == 0){
-                        printf("|%s   %s|", COLOR_BLUE, COLOR_RESET);
+                        printf("%s   %s|", COLOR_BLUE, COLOR_RESET);
                     }
                     else{
-                        printf("|%s %d %s|", COLOR_BLUE, matrix[i][j].player, COLOR_RESET);
+                        printf("%s %d %s|", COLOR_BLUE, matrix[i][j].player, COLOR_RESET);
                     }
                 }
                 else{
                     if(matrix[i][j].player == 0){
-                        printf("|   |");
+                        printf("   |");
                     }
                     else{
-                        printf("| %d |", matrix[i][j].player);
+                        printf(" %d |", matrix[i][j].player);
                     }
                 }
             }
