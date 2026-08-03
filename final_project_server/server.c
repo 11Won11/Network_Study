@@ -105,6 +105,7 @@ int main(int argc, char *argv[])
     arg->timer = timer;
     arg->size = size;
 
+
     matrix = (game_state **)malloc(sizeof(game_state *) * size);
     for(int i = 0; i < size; i++){
         matrix[i] = (game_state *)malloc(sizeof(game_state) * size);
@@ -317,30 +318,8 @@ void *handle_clnt(void * arg){
     }
 
     // 게임 결과 전송 
-    printf("게임종료n");
-
-    int red = 0;
-    int blue = 0;
+    printf("게임종료\n");
     
-    game_state *end_pkt = malloc(sizeof(game_state));
-
-    for(int i = 0; i < size; i++){
-        for(int j = 0; j < size; j++){
-            if(matrix[i][j].pillow == 1){
-                red++;
-            }
-            else if(matrix[i][j].pillow == 2){
-                blue++;
-            }
-        }
-    }
-
-    end_pkt->player = red;
-    end_pkt->pillow = blue;
-
-    write(clnt_sock, end_pkt, sizeof(game_state));
-
-
 	pthread_mutex_lock(&mutx);
 	for (i = 0; i < clnt_cnt; i++){
 		if (clnt_sock == clnt_socks[i]){
@@ -355,7 +334,6 @@ void *handle_clnt(void * arg){
 	free(send_pkt);
     free(start_pkt);
     free(recv_pkt);
-    free(end_pkt);
     free(info);
 	printf("Disconnected client Num: %d \n", clnt_sock);
 	return NULL;
