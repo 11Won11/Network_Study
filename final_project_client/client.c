@@ -285,27 +285,23 @@ int main(int argc, char *argv[])
         if(stoptime <= 0){
             break;
         }
-        printf("현재 남은 시간: %.9f초\n", stoptime);
-        printf ("\x1b[%dA", size+1);
-
+        printf("현재 남은 시간: %.2f초\n", stoptime);
+        printf("\x1b[%dA", size+1);
     }
 
-    game_state *end_pkt = malloc(sizeof(game_state));
+    int red = 0;
+    int blue = 0;
 
-    recv_len = 0;
-    while (recv_len < sizeof(game_state)) {
-        read_cnt = read(sd, (char*)end_pkt + recv_len, sizeof(game_state) - recv_len);
-        if (read_cnt == -1){
-            error_handling("read() error");
+    for(int i = 0; i < size; i++){
+        for(int j = 0; j < size; j++){
+            if(matrix[i][j].pillow == 1){
+                red++;
+            }
+            else if(matrix[i][j].pillow == 2){
+                blue++;
+            }
         }
-        else if (read_cnt == 0){
-            break; 
-        } 	
-        recv_len += read_cnt;
     }
-    
-    int red = end_pkt->player;
-    int blue = end_pkt->pillow;
 
     printf("Red: %d, Blue %d로 ", red, blue);
 
@@ -319,14 +315,13 @@ int main(int argc, char *argv[])
         puts("무승부입니다!");
     }
 	
-    term.c_lflag != ~ECHO;  
+    term.c_lflag &= ~ECHO;  
     tcsetattr(STDIN_FILENO, TCSANOW, &term);
 
 	close(sd);
 	free(recv_pkt);
     free(send_pkt);
     free(start_pkt);
-    free(end_pkt);
     free(info);
 	return 0;
 }
