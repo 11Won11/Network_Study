@@ -4,6 +4,8 @@
 *.o
 *.obj
 
+*.dat
+
 # 디버그 및 빌드 폴더가 있다면
 Debug/
 Release/
